@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.9;
+
+contract BloodDonation {
+
+    // Enum to distinguish between donor and receiver
+    enum PatientType { donor, receiver }
+
+    // Struct to store hospital details
+    struct HospitalDetails {
+        string name;
+        uint contact;
+        string location;
+        uint fees;
+    }
+
+    // Struct to store details of a blood transaction
+    struct BloodTransaction {
+        PatientType patientType;
+        uint date;
+        address from;
+        address to;
+    }
+
+    // Struct to store patient details along with their blood transactions
+    struct Patient {
+        string name;
+        uint age;
+        string bloodGroup;
+        uint contact;
+        string homeAddress;
+        uint aadhar;
+        BloodTransaction[] transactions;
+    }
+
+    address public owner;
+
+    // Event emitted when a patient is registered
+    event Registered(address indexed from, string message);
+
+    // Event emitted when a blood transaction is recorded
+    event BloodTransactionRecorded(address indexed from, address indexed to, PatientType patientType, uint date);
+
+    HospitalDetails[] private hospitalInfo;  // List of hospitals
+    Patient[] private patientDetails;        // List of patients
+
+    mapping(uint => uint) private patientDetailsIndex; // Map Aadhar to patient index
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner can access this function");
+        _;
+    }
+
+    // Function to set hospital details
+    function setHospitalInfo(string calldata name, uint contact, string calldata location, uint fees) external onlyOwner {
+        hospitalInfo.push(HospitalDetails(name, contact, location, fees));
+    }
+
+    // Function to get all hospital info
+    function getHospitalInfo() external view returns (HospitalDetails[] memory) {
+        return hospitalInfo;
+    }
+
+    // Function to register a new patient
+    function registerPatient(
+        string calldata name,
+        uint age,
+        string calldata bloodGroup,
+        uint contact,
+        string calldata homeAddress,
+        uint aadhar
+    ) external {
+        require(patientDetailsIndex[aadhar] == 0 && (patientDetails.length == 0 || patientDetails[0].aadhar != aadhar), "Aadhar already registered");
+
+        patientDetails.push();
+        uint index = patientDetails.length - 1;
+
+        patientDetails[index].name = name;
+        patientDetails[index].age = age;
+        patientDetails[index].bloodGroup = bloodGroup;
+        patientDetails[index].contact = contact;
+        patientDetails[index].homeAddress = homeAddress;
+        patientDetails[index].aadhar = aadhar;
+
+        patientDetailsIndex[aadhar] = index;
+
+        emit Registered(msg.sender, "Patient has been registered successfully");
+    }
+
+    // Function to add a blood transaction to a patient's record
+    function recordBloodTransaction(PatientType patientType, address from, address to, uint aadhar) external onlyOwner {
+        uint index = patientDetailsIndex[aadhar];
+        patientDetails[index].transactions.push(BloodTransaction(patientType, block.timestamp, from, to));
+
+        emit BloodTransactionRecorded(from, to, patientType, block.timestamp);
+    }
+
+    // Function to get all patient records (only accessible by owner)
+    function getAllRecords() external view onlyOwner returns (Patient[] memory) {
+        return patientDetails;
+    }
+
+    // Function to get record of a particular patient by Aadhar
+    function getParticularRecord(uint aadhar) external view returns (Patient memory) {
+        uint index = patientDetailsIndex[aadhar];
+        return patientDetails[index];
+    }
+}
